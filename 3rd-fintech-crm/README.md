@@ -21,7 +21,7 @@ Port từ Laravel + Filament CRM sang **TypeScript + Next.js 15 + Prisma + Auth.
 |--------|:----:|:------:|:------:|---------|
 | Auth (2-step UID → Password) | ✅ | — | ✅ | Giống Laravel `/authen/login` |
 | Role Hierarchy | ✅ | — | ✅ | Port từ `RoleHierarchy.php` |
-| User + Role + Permission | ✅ | ✅ | ✅ | Field HR/sale/hierarchy/bank |
+| User + Role + Permission | ✅ | ✅ | ✅ | Full form + detail + hierarchy enforce |
 | Lead | ✅ | ✅ | ✅ | Auto `lead_code` |
 | CrmTeam | ✅ | — | ✅ | |
 | SalesProject / SalesChannel | ✅ | — | ✅ | |

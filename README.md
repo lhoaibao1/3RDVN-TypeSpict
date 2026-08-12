@@ -1,1 +1,0 @@
-# 3RDVN-TypeSpict

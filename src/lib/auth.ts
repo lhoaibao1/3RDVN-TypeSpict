@@ -57,18 +57,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.uid = (user as any).uid;
-        token.employeeCode = (user as any).employeeCode;
-        token.roles = (user as any).roles ?? [];
+        token.uid = user.uid;
+        token.employeeCode = user.employeeCode;
+        token.roles = user.roles ?? [];
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.id;
-        (session.user as any).uid = token.uid;
-        (session.user as any).employeeCode = token.employeeCode;
-        (session.user as any).roles = token.roles ?? [];
+        session.user.id = String(token.id);
+        session.user.uid = typeof token.uid === "string" ? token.uid : null;
+        session.user.employeeCode =
+          typeof token.employeeCode === "string" ? token.employeeCode : null;
+        session.user.roles = Array.isArray(token.roles)
+          ? token.roles.filter((role): role is string => typeof role === "string")
+          : [];
       }
       return session;
     },

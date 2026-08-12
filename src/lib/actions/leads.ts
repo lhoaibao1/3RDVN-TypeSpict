@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { generateLeadCode } from "@/lib/utils";
+import { assertCan } from "@/lib/permissions";
+import type { Lead } from "@prisma/client";
+
+type LeadHierarchy = Partial<Pick<Lead, "teamId" | "teamLeaderId" | "amId" | "zdId">>;
 
 async function requireSession() {
   const session = await auth();
@@ -13,6 +17,8 @@ async function requireSession() {
 
 export async function createLead(formData: FormData) {
   const session = await requireSession();
+  const roles = session.user.roles || [];
+  assertCan(roles, "lead.create");
 
   const leadName = String(formData.get("leadName") || "").trim();
   const phone = String(formData.get("phone") || "").trim() || null;
@@ -62,6 +68,8 @@ export async function createLead(formData: FormData) {
 
 export async function updateLead(id: number, formData: FormData) {
   const session = await requireSession();
+  const roles = session.user.roles || [];
+  assertCan(roles, "lead.update");
 
   const leadName = String(formData.get("leadName") || "").trim();
   const phone = String(formData.get("phone") || "").trim() || null;
@@ -74,7 +82,7 @@ export async function updateLead(id: number, formData: FormData) {
 
   if (!leadName) throw new Error("Tên lead bắt buộc");
 
-  let hierarchy: any = {};
+  let hierarchy: LeadHierarchy = {};
   if (assignedSaleId) {
     const sale = await prisma.user.findUnique({ where: { id: assignedSaleId } });
     if (sale) {
@@ -103,7 +111,9 @@ export async function updateLead(id: number, formData: FormData) {
 }
 
 export async function updateLeadStatus(id: number, status: string) {
-  await requireSession();
+  const session = await requireSession();
+  const roles = session.user.roles || [];
+  assertCan(roles, "lead.update");
   await prisma.lead.update({ where: { id }, data: { status } });
   revalidatePath("/leads");
   revalidatePath(`/leads/${id}`);
@@ -111,6 +121,9 @@ export async function updateLeadStatus(id: number, status: string) {
 
 export async function convertLeadToSaleProfile(leadId: number) {
   const session = await requireSession();
+  const roles = session.user.roles || [];
+  assertCan(roles, "lead.update");
+  assertCan(roles, "sale_profile.create");
   const lead = await prisma.lead.findUnique({ where: { id: leadId } });
   if (!lead) throw new Error("Lead không tồn tại");
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { assertCan } from "@/lib/permissions";
 
 async function requireSession() {
   const session = await auth();
@@ -11,7 +12,9 @@ async function requireSession() {
 }
 
 export async function createTeam(formData: FormData) {
-  await requireSession();
+  const session = await requireSession();
+  const roles = session.user.roles || [];
+  assertCan(roles, "team.manage");
   const name = String(formData.get("name") || "").trim();
   const code = String(formData.get("code") || "").trim() || null;
   const description = String(formData.get("description") || "").trim() || null;
@@ -34,7 +37,9 @@ export async function createTeam(formData: FormData) {
 }
 
 export async function updateTeam(id: number, formData: FormData) {
-  await requireSession();
+  const session = await requireSession();
+  const roles = session.user.roles || [];
+  assertCan(roles, "team.manage");
   const name = String(formData.get("name") || "").trim();
   const code = String(formData.get("code") || "").trim() || null;
   const description = String(formData.get("description") || "").trim() || null;

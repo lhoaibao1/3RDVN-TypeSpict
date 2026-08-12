@@ -3,6 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { assertCan } from "@/lib/permissions";
+import type { DataCenterLead } from "@prisma/client";
+
+type DataCenterHierarchy = Partial<
+  Pick<DataCenterLead, "teamId" | "teamLeaderId" | "amId" | "zdId">
+>;
 
 async function requireSession() {
   const session = await auth();
@@ -21,6 +27,8 @@ function generateReferralCode(id: number) {
 
 export async function createDataCenterLead(formData: FormData) {
   const session = await requireSession();
+  const roles = session.user.roles || [];
+  assertCan(roles, "datacenter.manage");
 
   const customerName = String(formData.get("customerName") || "").trim();
   const phone = String(formData.get("phone") || "").trim() || null;
@@ -79,7 +87,9 @@ export async function createDataCenterLead(formData: FormData) {
 }
 
 export async function updateDataCenterLead(id: number, formData: FormData) {
-  await requireSession();
+  const session = await requireSession();
+  const roles = session.user.roles || [];
+  assertCan(roles, "datacenter.manage");
 
   const customerName = String(formData.get("customerName") || "").trim();
   const phone = String(formData.get("phone") || "").trim() || null;
@@ -99,7 +109,7 @@ export async function updateDataCenterLead(id: number, formData: FormData) {
 
   if (!customerName) throw new Error("Tên khách hàng bắt buộc");
 
-  let hierarchy: any = {};
+  let hierarchy: DataCenterHierarchy = {};
   if (assignedUserId) {
     const u = await prisma.user.findUnique({ where: { id: assignedUserId } });
     if (u) {
@@ -129,6 +139,9 @@ export async function updateDataCenterLead(id: number, formData: FormData) {
 
 export async function convertDcToLead(dcId: number) {
   const session = await requireSession();
+  const roles = session.user.roles || [];
+  assertCan(roles, "datacenter.manage");
+  assertCan(roles, "lead.create");
   const dc = await prisma.dataCenterLead.findUnique({ where: { id: dcId } });
   if (!dc) throw new Error("Không tìm thấy");
 

@@ -2,29 +2,38 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
 import { Plus } from "lucide-react";
+
+const PAGE_SIZE = 20;
 
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const sp = await searchParams;
   const q = (sp.q || "").trim();
+  const requestedPage = Math.max(1, Number.parseInt(sp.page || "1", 10) || 1);
+  const where = {
+    deletedAt: null,
+    ...(q
+      ? {
+          OR: [
+            { leadName: { contains: q } },
+            { phone: { contains: q } },
+            { email: { contains: q } },
+            { leadCode: { contains: q } },
+          ],
+        }
+      : {}),
+  };
+  const total = await prisma.lead.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(requestedPage, totalPages);
 
   const leads = await prisma.lead.findMany({
-    where: {
-      deletedAt: null,
-      ...(q
-        ? {
-            OR: [
-              { leadName: { contains: q } },
-              { phone: { contains: q } },
-              { leadCode: { contains: q } },
-            ],
-          }
-        : {}),
-    },
+    where,
     include: {
       assignedSale: { select: { name: true, uid: true } },
       createdBy: { select: { name: true } },
@@ -32,6 +41,8 @@ export default async function LeadsPage({
       team: { select: { name: true } },
     },
     orderBy: { createdAt: "desc" },
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
   });
 
   return (
@@ -39,7 +50,7 @@ export default async function LeadsPage({
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
-          <p className="text-sm text-gray-500 mt-1">{leads.length} leads</p>
+          <p className="text-sm text-gray-500 mt-1">{total} leads</p>
         </div>
         <div className="flex gap-2">
           <form className="flex gap-2">
@@ -74,7 +85,7 @@ export default async function LeadsPage({
               {leads.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-10 text-center text-gray-400">
-                    Chưa có lead nào
+                    {q ? "Không tìm thấy lead phù hợp" : "Chưa có lead nào"}
                   </td>
                 </tr>
               ) : (
@@ -103,6 +114,7 @@ export default async function LeadsPage({
           </table>
         </div>
       </div>
+      <Pagination basePath="/leads" page={page} totalPages={totalPages} query={{ q }} />
     </div>
   );
 }

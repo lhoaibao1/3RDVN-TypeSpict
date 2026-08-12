@@ -3,6 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { assertCan } from "@/lib/permissions";
+import type { Application } from "@prisma/client";
+
+type ApplicationHierarchy = Partial<
+  Pick<Application, "teamId" | "teamLeaderId" | "amId" | "zdId">
+>;
 
 async function requireSession() {
   const session = await auth();
@@ -22,6 +28,8 @@ function generateApplicationCode() {
 
 export async function createApplication(formData: FormData) {
   const session = await requireSession();
+  const roles = session.user.roles || [];
+  assertCan(roles, "application.create");
 
   const applicantName = String(formData.get("applicantName") || "").trim();
   const phone = String(formData.get("phone") || "").trim() || null;
@@ -49,7 +57,7 @@ export async function createApplication(formData: FormData) {
   }
 
   // If from lead, pull extra info
-  let finalName = applicantName;
+  const finalName = applicantName;
   let finalPhone = phone;
   if (leadId) {
     const lead = await prisma.lead.findUnique({ where: { id: leadId } });
@@ -86,7 +94,9 @@ export async function createApplication(formData: FormData) {
 }
 
 export async function updateApplication(id: number, formData: FormData) {
-  await requireSession();
+  const session = await requireSession();
+  const roles = session.user.roles || [];
+  assertCan(roles, "application.update");
 
   const applicantName = String(formData.get("applicantName") || "").trim();
   const phone = String(formData.get("phone") || "").trim() || null;
@@ -98,7 +108,7 @@ export async function updateApplication(id: number, formData: FormData) {
 
   if (!applicantName) throw new Error("Tên người nộp đơn bắt buộc");
 
-  let hierarchy: any = {};
+  let hierarchy: ApplicationHierarchy = {};
   if (assignedSaleId) {
     const sale = await prisma.user.findUnique({ where: { id: assignedSaleId } });
     if (sale) {
@@ -130,7 +140,9 @@ export async function updateApplication(id: number, formData: FormData) {
 }
 
 export async function updateApplicationStatus(id: number, status: string) {
-  await requireSession();
+  const session = await requireSession();
+  const roles = session.user.roles || [];
+  assertCan(roles, "application.update");
   await prisma.application.update({ where: { id }, data: { status } });
   revalidatePath("/applications");
   revalidatePath(`/applications/${id}`);

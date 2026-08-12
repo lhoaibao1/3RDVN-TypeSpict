@@ -1,10 +1,7 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Users, UserPlus, Briefcase, FolderKanban } from "lucide-react";
 
 export default async function DashboardPage() {
-  const session = await auth();
-
   const [userCount, leadCount, teamCount, projectCount] = await Promise.all([
     prisma.user.count({ where: { employmentStatus: "active" } }),
     prisma.lead.count({ where: { deletedAt: null } }),

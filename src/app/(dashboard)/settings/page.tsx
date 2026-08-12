@@ -19,10 +19,10 @@ export default async function SettingsPage() {
           <dt className="text-gray-500">Email</dt>
           <dd>{session?.user?.email}</dd>
           <dt className="text-gray-500">UID</dt>
-          <dd className="font-mono text-xs">{(session?.user as any)?.uid || "—"}</dd>
+          <dd className="font-mono text-xs">{session?.user?.uid || "—"}</dd>
           <dt className="text-gray-500">Roles</dt>
           <dd className="flex flex-wrap gap-1">
-            {((session?.user as any)?.roles || []).map((r: string) => (
+            {(session?.user?.roles || []).map((r) => (
               <span key={r} className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">{r}</span>
             ))}
           </dd>

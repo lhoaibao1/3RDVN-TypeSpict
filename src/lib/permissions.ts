@@ -3,7 +3,7 @@
  * Map roles → allowed actions (simplified from Spatie permissions)
  */
 
-import { isOperationalAdmin, primaryRole, type RoleName } from "./role-hierarchy";
+import { isOperationalAdmin, primaryRole } from "./role-hierarchy";
 
 export type Action =
   | "user.view" | "user.create" | "user.update" | "user.delete"

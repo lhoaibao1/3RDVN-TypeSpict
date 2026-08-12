@@ -2,35 +2,74 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
 import { Plus } from "lucide-react";
 
-export default async function ApplicationsPage() {
+const PAGE_SIZE = 20;
+
+export default async function ApplicationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; page?: string }>;
+}) {
+  const sp = await searchParams;
+  const q = (sp.q || "").trim();
+  const requestedPage = Math.max(1, Number.parseInt(sp.page || "1", 10) || 1);
+  const where = {
+    deletedAt: null,
+    ...(q
+      ? {
+          OR: [
+            { applicationCode: { contains: q } },
+            { applicantName: { contains: q } },
+            { phone: { contains: q } },
+            { identityNumber: { contains: q } },
+          ],
+        }
+      : {}),
+  };
+  const total = await prisma.application.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(requestedPage, totalPages);
   const apps = await prisma.application.findMany({
-    where: { deletedAt: null },
+    where,
     include: {
       assignedSale: { select: { name: true } },
       salesProject: { select: { name: true } },
     },
     orderBy: { createdAt: "desc" },
-    take: 100,
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
   });
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Applications</h1>
-          <p className="text-sm text-gray-500 mt-1">{apps.length} đơn</p>
+          <p className="text-sm text-gray-500 mt-1">{total} đơn</p>
         </div>
-        <Button asChild>
-          <Link href="/applications/new">
-            <Plus className="h-4 w-4" />
-            Tạo đơn
-          </Link>
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <form className="flex gap-2">
+            <input
+              name="q"
+              defaultValue={q}
+              placeholder="Tìm mã / tên / SĐT..."
+              className="h-10 rounded-md border border-gray-300 px-3 text-sm w-52"
+            />
+            <Button type="submit" variant="outline">Tìm</Button>
+          </form>
+          <Button asChild>
+            <Link href="/applications/new">
+              <Plus className="h-4 w-4" />
+              Tạo đơn
+            </Link>
+          </Button>
+        </div>
       </div>
       <div className="bg-white rounded-xl border overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-gray-50 text-left text-gray-500">
               <th className="px-4 py-3 font-medium">Mã đơn</th>
@@ -46,7 +85,7 @@ export default async function ApplicationsPage() {
             {apps.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-gray-400">
-                  Chưa có đơn
+                  {q ? "Không tìm thấy đơn phù hợp" : "Chưa có đơn"}
                 </td>
               </tr>
             ) : (
@@ -71,8 +110,10 @@ export default async function ApplicationsPage() {
               ))
             )}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
+      <Pagination basePath="/applications" page={page} totalPages={totalPages} query={{ q }} />
     </div>
   );
 }

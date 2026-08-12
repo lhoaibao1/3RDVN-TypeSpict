@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { isOperationalAdmin } from "@/lib/role-hierarchy";
+import { assertCan } from "@/lib/permissions";
+import type { Prisma } from "@prisma/client";
 
 async function requireSession() {
   const session = await auth();
@@ -13,6 +14,8 @@ async function requireSession() {
 
 export async function createSaleProfile(formData: FormData) {
   const session = await requireSession();
+  const roles = session.user.roles || [];
+  assertCan(roles, "sale_profile.create");
 
   const customerName = String(formData.get("customerName") || "").trim();
   const phone = String(formData.get("phone") || "").trim() || null;
@@ -44,11 +47,8 @@ export async function createSaleProfile(formData: FormData) {
 
 export async function approveSaleProfile(id: number) {
   const session = await requireSession();
-  const roles = (session.user as any).roles || [];
-  // Admin, Sales Admin, ZD, AM, Team Leader can approve
-  const canApprove = isOperationalAdmin(roles) ||
-    roles.some((r: string) => ["ZD", "AM", "Team Leader"].includes(r));
-  if (!canApprove) throw new Error("Bạn không có quyền duyệt hồ sơ");
+  const roles = session.user.roles || [];
+  assertCan(roles, "sale_profile.approve");
 
   await prisma.saleProfile.update({
     where: { id },
@@ -66,10 +66,8 @@ export async function approveSaleProfile(id: number) {
 
 export async function rejectSaleProfile(id: number, reason: string) {
   const session = await requireSession();
-  const roles = (session.user as any).roles || [];
-  const canApprove = isOperationalAdmin(roles) ||
-    roles.some((r: string) => ["ZD", "AM", "Team Leader"].includes(r));
-  if (!canApprove) throw new Error("Bạn không có quyền từ chối hồ sơ");
+  const roles = session.user.roles || [];
+  assertCan(roles, "sale_profile.approve");
 
   await prisma.saleProfile.update({
     where: { id },
@@ -87,8 +85,10 @@ export async function rejectSaleProfile(id: number, reason: string) {
 }
 
 export async function updateSaleProfileStatus(id: number, status: string, processingStatus?: string) {
-  await requireSession();
-  const data: any = { status };
+  const session = await requireSession();
+  const roles = session.user.roles || [];
+  assertCan(roles, "sale_profile.approve");
+  const data: Prisma.SaleProfileUpdateInput = { status };
   if (processingStatus) data.processingStatus = processingStatus;
   if (status === "Hoàn thành") data.completedAt = new Date();
 

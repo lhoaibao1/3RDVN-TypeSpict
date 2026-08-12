@@ -5,7 +5,9 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { generateUid, generateEmployeeCode } from "@/lib/utils";
-import { assignableRoles, primaryRole } from "@/lib/role-hierarchy";
+import { assignableRoles, type RoleName } from "@/lib/role-hierarchy";
+import { assertCan } from "@/lib/permissions";
+import type { Prisma } from "@prisma/client";
 
 async function requireSession() {
   const session = await auth();
@@ -15,7 +17,8 @@ async function requireSession() {
 
 export async function createUser(formData: FormData) {
   const session = await requireSession();
-  const actorRoles = (session.user as any).roles || [];
+  const actorRoles = session.user.roles || [];
+  assertCan(actorRoles, "user.create");
 
   const name = String(formData.get("name") || "").trim();
   const email = String(formData.get("email") || "").trim();
@@ -46,7 +49,7 @@ export async function createUser(formData: FormData) {
 
   if (roleName) {
     const allowed = assignableRoles(actorRoles);
-    if (allowed.length > 0 && !allowed.includes(roleName as any)) {
+    if (allowed.length > 0 && !allowed.includes(roleName as RoleName)) {
       throw new Error(`Bạn không được gán role "${roleName}"`);
     }
   }
@@ -86,6 +89,8 @@ export async function createUser(formData: FormData) {
 
 export async function updateUser(id: number, formData: FormData) {
   const session = await requireSession();
+  const roles = session.user.roles || [];
+  assertCan(roles, "user.update");
 
   const name = String(formData.get("name") || "").trim();
   const email = String(formData.get("email") || "").trim();
@@ -115,7 +120,7 @@ export async function updateUser(id: number, formData: FormData) {
 
   if (!name || !email) throw new Error("Thiếu họ tên / email");
 
-  const data: any = {
+  const data: Prisma.UserUncheckedUpdateInput = {
     name, email, phone, department, position, gender, identityNumber, documentType,
     office, contractType, employmentStatus,
     teamId: teamId || null,
@@ -146,7 +151,9 @@ export async function updateUser(id: number, formData: FormData) {
 }
 
 export async function deactivateUser(id: number) {
-  await requireSession();
+  const session = await requireSession();
+  const roles = session.user.roles || [];
+  assertCan(roles, "user.delete");
   await prisma.user.update({
     where: { id },
     data: { employmentStatus: "deactive" },

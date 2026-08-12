@@ -2,31 +2,71 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
 import { Plus } from "lucide-react";
 
-export default async function UsersPage() {
+const PAGE_SIZE = 20;
+
+export default async function UsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; page?: string }>;
+}) {
+  const sp = await searchParams;
+  const q = (sp.q || "").trim();
+  const requestedPage = Math.max(1, Number.parseInt(sp.page || "1", 10) || 1);
+  const where = {
+    employmentStatus: { not: "deleted" },
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q } },
+            { email: { contains: q } },
+            { phone: { contains: q } },
+            { uid: { contains: q } },
+            { employeeCode: { contains: q } },
+          ],
+        }
+      : {}),
+  };
+  const total = await prisma.user.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(requestedPage, totalPages);
   const users = await prisma.user.findMany({
-    where: { employmentStatus: { not: "deleted" } },
+    where,
     include: {
       roles: { include: { role: true } },
       team: true,
     },
     orderBy: { id: "desc" },
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
   });
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Người dùng</h1>
-          <p className="text-sm text-gray-500 mt-1">{users.length} người dùng</p>
+          <p className="text-sm text-gray-500 mt-1">{total} người dùng</p>
         </div>
-        <Button asChild>
-          <Link href="/users/new">
-            <Plus className="h-4 w-4" />
-            Thêm người dùng
-          </Link>
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <form className="flex gap-2">
+            <input
+              name="q"
+              defaultValue={q}
+              placeholder="Tìm tên / UID / email..."
+              className="h-10 rounded-md border border-gray-300 px-3 text-sm w-56"
+            />
+            <Button type="submit" variant="outline">Tìm</Button>
+          </form>
+          <Button asChild>
+            <Link href="/users/new">
+              <Plus className="h-4 w-4" />
+              Thêm người dùng
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border overflow-hidden">
@@ -45,7 +85,13 @@ export default async function UsersPage() {
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
+              {users.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-12 text-center text-gray-400">
+                    {q ? "Không tìm thấy người dùng phù hợp" : "Chưa có người dùng"}
+                  </td>
+                </tr>
+              ) : users.map((u) => (
                 <tr key={u.id} className="border-b last:border-0 hover:bg-gray-50">
                   <td className="px-4 py-3 font-mono text-xs">{u.uid || "—"}</td>
                   <td className="px-4 py-3">
@@ -86,6 +132,7 @@ export default async function UsersPage() {
           </table>
         </div>
       </div>
+      <Pagination basePath="/users" page={page} totalPages={totalPages} query={{ q }} />
     </div>
   );
 }

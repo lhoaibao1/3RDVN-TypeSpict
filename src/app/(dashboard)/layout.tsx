@@ -24,7 +24,7 @@ export default async function DashboardLayout({
             )}
           </div>
           <div className="flex items-center gap-2">
-            {(session.user as any).roles?.map((r: string) => (
+            {session.user.roles.map((r) => (
               <span
                 key={r}
                 className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700"
